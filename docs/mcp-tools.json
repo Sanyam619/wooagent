@@ -1,0 +1,527 @@
+{
+  "server": {
+    "name": "woocommerce-connector",
+    "version": "1.0.0"
+  },
+  "instructions": "Read-only access to one merchant's WooCommerce store: orders, order notes and products/inventory. It cannot create, update, refund or cancel anything. Customer emails and phones are masked. Prefer narrow filters and small pages; the store is rate limited.",
+  "transport": "stdio",
+  "tools": [
+    {
+      "name": "list_orders",
+      "title": "List orders",
+      "description": "List the store's orders, newest first, with optional filters for status, date range, customer or product. Returns compact summaries (status, totals, payment method, transaction ID, masked customer contact). Use get_order for full line items, addresses and refunds.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "description": "Only orders in these statuses. Omit for all statuses.",
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "pending",
+                "processing",
+                "on-hold",
+                "completed",
+                "cancelled",
+                "refunded",
+                "failed",
+                "checkout-draft"
+              ]
+            }
+          },
+          "after": {
+            "description": "Only orders created on or after this date (store timezone).",
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}(T\\d{2}:\\d{2}(:\\d{2})?)?$"
+          },
+          "before": {
+            "description": "Only orders created on or before this date (store timezone).",
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}(T\\d{2}:\\d{2}(:\\d{2})?)?$"
+          },
+          "customer_id": {
+            "description": "Only orders from this registered customer ID.",
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          },
+          "product_id": {
+            "description": "Only orders that contain this product ID.",
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          },
+          "order": {
+            "default": "desc",
+            "description": "Sort by creation date. desc = newest first.",
+            "type": "string",
+            "enum": [
+              "asc",
+              "desc"
+            ]
+          },
+          "page": {
+            "default": 1,
+            "description": "Page number, starting at 1.",
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "per_page": {
+            "default": 10,
+            "description": "Results per page (max 50). Keep small unless you need more.",
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 50
+          }
+        },
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "search_orders",
+      "title": "Search orders",
+      "description": "Full-text search across orders by customer name, email, phone, address or product name. Use this when a customer contacts support and you only know who they are. Does NOT match payment gateway IDs (pay_...); use find_order_by_payment_id for those.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "minLength": 2,
+            "description": "Text to search for, e.g. a customer email or surname."
+          },
+          "status": {
+            "description": "Only orders in these statuses. Omit for all statuses.",
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "pending",
+                "processing",
+                "on-hold",
+                "completed",
+                "cancelled",
+                "refunded",
+                "failed",
+                "checkout-draft"
+              ]
+            }
+          },
+          "after": {
+            "description": "Only orders created on or after this date (store timezone).",
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}(T\\d{2}:\\d{2}(:\\d{2})?)?$"
+          },
+          "before": {
+            "description": "Only orders created on or before this date (store timezone).",
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}(T\\d{2}:\\d{2}(:\\d{2})?)?$"
+          },
+          "customer_id": {
+            "description": "Only orders from this registered customer ID.",
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          },
+          "product_id": {
+            "description": "Only orders that contain this product ID.",
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          },
+          "order": {
+            "default": "desc",
+            "description": "Sort by creation date. desc = newest first.",
+            "type": "string",
+            "enum": [
+              "asc",
+              "desc"
+            ]
+          },
+          "page": {
+            "default": 1,
+            "description": "Page number, starting at 1.",
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "per_page": {
+            "default": 10,
+            "description": "Results per page (max 50). Keep small unless you need more.",
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 50
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "get_order",
+      "title": "Get order",
+      "description": "Get one order in full: line items with SKUs, totals breakdown, coupons, shipping method, refunds, customer note and timestamps.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "order_id": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "string",
+                "pattern": "^#?\\d+$"
+              }
+            ],
+            "description": "Order ID, e.g. 1042 or \"#1042\"."
+          }
+        },
+        "required": [
+          "order_id"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "get_order_notes",
+      "title": "Get order notes",
+      "description": "Get the timeline notes on an order: status changes, payment gateway messages (e.g. payment captured or failed), and staff notes. Useful for explaining why an order is stuck in pending or on-hold.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "order_id": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "string",
+                "pattern": "^#?\\d+$"
+              }
+            ],
+            "description": "Order ID, e.g. 1042 or \"#1042\"."
+          }
+        },
+        "required": [
+          "order_id"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "find_order_by_payment_id",
+      "title": "Find order by payment ID",
+      "description": "Find the order linked to a payment gateway ID, such as a Razorpay payment ID (pay_...) or Razorpay order ID (order_...). Use this when a customer says they paid but the order is not confirmed. Scans orders modified within lookback_days, so it can be slow. found=false with complete=true means no order in that window has this ID; complete=false means the scan hit max_pages and is not conclusive.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "payment_id": {
+            "type": "string",
+            "minLength": 4,
+            "maxLength": 64,
+            "pattern": "^[A-Za-z0-9_\\-]+$",
+            "description": "The gateway payment or order ID."
+          },
+          "lookback_days": {
+            "default": 30,
+            "description": "How far back to scan by last-modified date.",
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 90
+          },
+          "max_pages": {
+            "default": 5,
+            "description": "Upper bound on pages of 100 orders to scan.",
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10
+          }
+        },
+        "required": [
+          "payment_id"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "list_products",
+      "title": "List products",
+      "description": "List published products with price, stock status and stock quantity. Filter by stock status, category or type.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "stock_status": {
+            "description": "Only products with this stock status.",
+            "type": "string",
+            "enum": [
+              "instock",
+              "outofstock",
+              "onbackorder"
+            ]
+          },
+          "category_id": {
+            "description": "Only products in this category ID.",
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "simple",
+              "variable",
+              "grouped",
+              "external"
+            ]
+          },
+          "orderby": {
+            "default": "date",
+            "type": "string",
+            "enum": [
+              "date",
+              "title",
+              "price",
+              "popularity"
+            ]
+          },
+          "order": {
+            "default": "desc",
+            "type": "string",
+            "enum": [
+              "asc",
+              "desc"
+            ]
+          },
+          "page": {
+            "default": 1,
+            "description": "Page number, starting at 1.",
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "per_page": {
+            "default": 10,
+            "description": "Results per page (max 50). Keep small unless you need more.",
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 50
+          }
+        },
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "search_products",
+      "title": "Search products",
+      "description": "Find products by name/description text, or by exact SKU. Provide at least one of query or sku.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "description": "Words from the product name or description.",
+            "type": "string",
+            "minLength": 2
+          },
+          "sku": {
+            "description": "Exact SKU. Comma-separate to look up several.",
+            "type": "string",
+            "minLength": 1
+          },
+          "stock_status": {
+            "description": "Only products with this stock status.",
+            "type": "string",
+            "enum": [
+              "instock",
+              "outofstock",
+              "onbackorder"
+            ]
+          },
+          "category_id": {
+            "description": "Only products in this category ID.",
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "simple",
+              "variable",
+              "grouped",
+              "external"
+            ]
+          },
+          "orderby": {
+            "default": "date",
+            "type": "string",
+            "enum": [
+              "date",
+              "title",
+              "price",
+              "popularity"
+            ]
+          },
+          "order": {
+            "default": "desc",
+            "type": "string",
+            "enum": [
+              "asc",
+              "desc"
+            ]
+          },
+          "page": {
+            "default": 1,
+            "description": "Page number, starting at 1.",
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "per_page": {
+            "default": 10,
+            "description": "Results per page (max 50). Keep small unless you need more.",
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 50
+          }
+        },
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "get_product",
+      "title": "Get product",
+      "description": "Get one product in full, including regular/sale price, low-stock threshold, backorder policy and, for variable products, each variation's attributes, price and stock.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "product_id": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "product_id"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "list_low_stock",
+      "title": "List low-stock products",
+      "description": "List products that are at or below their low-stock threshold (or out of stock), lowest stock first. Uses each product's own threshold, then the store default, unless you pass a threshold.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "threshold": {
+            "description": "Override: treat stock at or below this number as low.",
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "include_out_of_stock": {
+            "default": true,
+            "type": "boolean"
+          },
+          "max_pages": {
+            "default": 10,
+            "description": "Upper bound on pages of 100 products to scan.",
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 20
+          }
+        },
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "name": "woo-agent-connector",
+  "version": "1.0.0",
+  "description": "Read-only WooCommerce connector (MCP server) for Agent Studio agents",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/src/server.js",
+    "dev": "tsx src/server.ts",
+    "connect": "tsx src/connect.ts",
+    "mock": "tsx mock/server.ts",
+    "demo": "tsx scripts/demo.ts",
+    "spec": "tsx scripts/dump-spec.ts",
+    "test": "tsx --test test/*.test.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.32.0",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.4",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2"
+  },
+  "type": "module",
+  "bin": {
+    "woo-agent-connector": "dist/src/server.js"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
