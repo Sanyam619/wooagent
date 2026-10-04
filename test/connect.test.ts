@@ -10,11 +10,6 @@ import { WooService } from "../src/woo.js";
 let store: Awaited<ReturnType<typeof startMockStore>>;
 const dir = mkdtempSync(join(tmpdir(), "woo-connect-"));
 
-before(async () => {
-  store = await startMockStore();
-});
-after(async () => store.close());
-
 async function approveAs(authorizeUrl: string, tamper: (form: URLSearchParams) => void = () => {}) {
   const page = await fetch(authorizeUrl);
   assert.equal(page.status, 200);
@@ -30,6 +25,11 @@ async function approveAs(authorizeUrl: string, tamper: (form: URLSearchParams) =
 }
 
 describe("store connection flow (/wc-auth/v1/authorize)", () => {
+  before(async () => {
+    store = await startMockStore();
+  });
+  after(async () => store.close());
+
   test("merchant approval delivers a read-only key that works against the API", async () => {
     const file = join(dir, "ok.json");
     let approval: Promise<Response> | undefined;
